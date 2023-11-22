@@ -3,6 +3,8 @@ import cv2
 from eye import Eye
 from PyQt5.QtCore import pyqtSignal, QThread
 import numpy as np
+from time import sleep
+
 class VideoProcessing(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
     def __init__(self, data_queue: Queue) -> None:
@@ -10,10 +12,11 @@ class VideoProcessing(QThread):
         return super().__init__()
     def run(self) -> None:
         self.lock = False
+        sleep(5)
         cap = cv2.VideoCapture(0)
         if (cap.isOpened()== False): 
             print("Error opening video stream or file")
-        face_cascade = cv2.CascadeClassifier('../../opencv_build/opencv/data/haarcascades/haarcascade_frontalface_default.xml')
+        face_cascade = cv2.CascadeClassifier('resources/haarcascade_frontalface_default.xml')
         eye_cascade = cv2.CascadeClassifier('resources/haarcascade_eye.xml')
         
         FACTOR = 0.015
@@ -28,7 +31,7 @@ class VideoProcessing(QThread):
                 frame_height, frame_width = len(frame), len(frame[0])
 
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+                faces = face_cascade.detectMultiScale(gray, 1.1, 4)
                 directions = []
                 for (x_face, y_face, width_face, height_face) in faces:
                     face_gray = gray[y_face : y_face + height_face, x_face : x_face + width_face]
