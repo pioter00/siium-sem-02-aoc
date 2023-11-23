@@ -18,7 +18,7 @@ class WebCamThread(QThread):
 
     def run(self):
         self.lock = False
-        cap = cv2.VideoCapture("http://192.168.0.190:4747/video")
+        cap = cv2.VideoCapture(0)
         while cap.isOpened():
             if self.lock:
                 break
