@@ -17,8 +17,10 @@ class VideoProcessing(QThread):
         self.lock = False
         sleep(5)
         cap = cv2.VideoCapture(0)
-        if (cap.isOpened() == False):
+
+        if not cap.isOpened():
             print("Error opening video stream or file")
+
         face_cascade = cv2.CascadeClassifier('../resources/haarcascade_frontalface_default.xml')
         eye_cascade = cv2.CascadeClassifier('../resources/haarcascade_eye.xml')
 
@@ -26,16 +28,19 @@ class VideoProcessing(QThread):
 
         self.starting_position = []
 
-        while (cap.isOpened()):
+        while cap.isOpened():
             if self.lock:
                 break
+
             ret, frame = cap.read()
-            if ret == True:
+
+            if ret:
                 frame_height, frame_width = len(frame), len(frame[0])
 
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 faces = face_cascade.detectMultiScale(gray, 1.1, 4)
                 directions = []
+
                 for (x_face, y_face, width_face, height_face) in faces:
                     face_gray = gray[y_face: y_face + height_face, x_face: x_face + width_face]
                     face_color = frame[y_face: y_face + height_face, x_face: x_face + width_face]
@@ -45,27 +50,33 @@ class VideoProcessing(QThread):
 
                     for i, (eye_x, eye_y, eye_width, eye_height) in enumerate(
                             detected_eyes[:2 if len(detected_eyes) > 2 else len(detected_eyes)]):
+
                         cv2.rectangle(face_color,
                                       (eye_x, eye_y),
                                       (eye_x + eye_width,
                                        eye_y + eye_height),
                                       (0, 255, 0),
                                       2)
+
                         eye = Eye(face_gray[eye_y: eye_y + eye_height, eye_x: eye_x + eye_width],
                                   middle_block=(int(FACTOR * frame_width), int(FACTOR * frame_height)))
+
                         ey, ex = eye.get_center_of_frame()
 
                         cv2.circle(face_color, (ex + eye_x, ey + eye_y), 2, (255, 255, 0), thickness=-1)
+
                         if len(detected_eyes) < 2:
                             continue
                         if len(self.starting_position) < 2:
                             self.starting_position.append((ex + eye_x + x_face, ey + eye_y + y_face))
+
                         else:
                             if abs(ex + eye_x + x_face - self.starting_position[0][0]) < abs(
                                     ex + eye_x + x_face - self.starting_position[1][0]):
                                 eye.set_starting_position(self.starting_position[0])
                             else:
                                 eye.set_starting_position(self.starting_position[1])
+
                             eye.set_eye_position((ex + eye_x + x_face, ey + eye_y + y_face))
                             directions.append(eye.get_direction())
                             cv2.circle(frame, (self.starting_position[i][0], self.starting_position[i][1]), 4,
