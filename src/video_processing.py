@@ -82,6 +82,19 @@ class VideoProcessing(QThread):
                             cv2.circle(frame, (self.starting_position[i][0], self.starting_position[i][1]), 4,
                                        (255, 0, 0), thickness=-1)
 
+                # TODO get status from here
+                if len(directions) == 2:
+                    if (directions[0].name == directions[1].name and
+                        directions[0].name != 'MIDDLE' and directions[1].name != 'MIDDLE'):
+                        print(f'Eyes looking {directions[0].name}')
+                    else:
+                        pass  # different data from one eye
+
+                else:
+                    print('One eye blinked')
+
+                # TODO after one successful message/reading set: self.starting_position = [] --> to calibrate once again
+
                 self.change_pixmap_signal.emit(frame)
                 self.data_queue.put(directions)
 

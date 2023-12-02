@@ -34,17 +34,13 @@ class Eye:
             return Direction.MIDDLE
 
         elif y_start >= y_current + self.middle_block[1]:
-            print(f'Looking Up')
             return Direction.UP
 
         elif y_start <= y_current - self.middle_block[1]:
-            print(f'Looking Down')
             return Direction.DOWN
 
         elif x_start >= x_current + self.middle_block[0]:
-            print(f'Looking right')
             return Direction.RIGHT
 
         elif x_start <= x_current - self.middle_block[0]:
-            print(f'Looking left')
             return Direction.LEFT
