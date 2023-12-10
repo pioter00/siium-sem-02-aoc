@@ -4,6 +4,7 @@ from eye import Eye
 from PyQt5.QtCore import pyqtSignal, QThread
 import numpy as np
 from time import sleep
+import os
 
 
 class VideoProcessing(QThread):
@@ -63,7 +64,34 @@ class VideoProcessing(QThread):
 
                         ey, ex = eye.get_center_of_frame()
 
-                        cv2.circle(face_color, (ex + eye_x, ey + eye_y), 2, (255, 255, 0), thickness=-1)
+                        # Center of Hough eye
+                        cv2.circle(face_color, (eye_x + ex, eye_y + ey), 2, (0, 255, 0), thickness=-1)
+
+                        eye_blur = cv2.medianBlur(face_gray[eye_y: eye_y + eye_height, eye_x: eye_x + eye_width], 1)
+
+                        circles = cv2.HoughCircles(eye_blur, cv2.HOUGH_GRADIENT, 1, 10,
+                                                   param1=30,
+                                                   param2=15,
+                                                   minRadius=7,
+                                                   maxRadius=15 )
+
+                        if circles is not None:
+                            circles = np.reshape(circles, (-1, 3))
+
+                            for c in circles:
+                                cv2.circle(face_color,
+                                           (eye_x + int(c[0]), eye_y + int(c[1])),
+                                           2,
+                                           (255, 0, 0),
+                                           thickness=-1)
+
+                                cv2.circle(face_color,
+                                           (eye_x + int(c[0]), eye_y + int(c[1])),
+                                           int(c[2]),
+                                           (255, 0, 0),
+                                           thickness=1)
+
+                            print(f'Possition: center {ex, ey} vs iris {circles[0][0], circles[0][1]}')
 
                         if len(detected_eyes) < 2:
                             continue
@@ -79,19 +107,19 @@ class VideoProcessing(QThread):
 
                             eye.set_eye_position((ex + eye_x + x_face, ey + eye_y + y_face))
                             directions.append(eye.get_direction())
-                            cv2.circle(frame, (self.starting_position[i][0], self.starting_position[i][1]), 4,
-                                       (255, 0, 0), thickness=-1)
+                            # cv2.circle(frame, (self.starting_position[i][0], self.starting_position[i][1]), 4,
+                            #            (255, 0, 0), thickness=-1)
 
                 # TODO get status from here
-                if len(directions) == 2:
-                    if (directions[0].name == directions[1].name and
-                        directions[0].name != 'MIDDLE' and directions[1].name != 'MIDDLE'):
-                        print(f'Eyes looking {directions[0].name}')
-                    else:
-                        pass  # different data from one eye
-
-                else:
-                    print('One eye blinked')
+                # if len(directions) == 2:
+                #     if (directions[0].name == directions[1].name and
+                #         directions[0].name != 'MIDDLE' and directions[1].name != 'MIDDLE'):
+                #         print(f'Eyes looking {directions[0].name}')
+                #     else:
+                #         pass  # different data from one eye
+                #
+                # else:
+                #     print('One eye blinked')
 
                 # TODO after one successful message/reading set: self.starting_position = [] --> to calibrate once again
 
