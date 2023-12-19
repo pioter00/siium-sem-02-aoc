@@ -6,6 +6,7 @@ import numpy as np
 import math
 from time import sleep
 import os
+from src.consts import *
 
 
 class VideoProcessing(QThread):
@@ -18,7 +19,7 @@ class VideoProcessing(QThread):
     def run(self) -> None:
         self.lock = False
         sleep(5)
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(camera)
 
         if not cap.isOpened():
             print("Error opening video stream or file")

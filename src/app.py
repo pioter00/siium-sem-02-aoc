@@ -11,14 +11,14 @@ from PyQt5.QtGui import QImage, QPixmap
 
 from scroll import Scroller
 from video_processing import VideoProcessing
-
+from src.consts import *
 
 class WebCamThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
 
     def run(self):
         self.lock = False
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(camera)
         while cap.isOpened():
             if self.lock:
                 break
