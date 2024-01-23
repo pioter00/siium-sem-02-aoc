@@ -32,12 +32,12 @@ class VideoProcessing(QThread):
                       'Right': None}  # Tracker for eye status
 
         # Iris detection parameters
-        blur_mask_size = 7
+        blur_mask_size = 3
         canny_param_1 = 30
         canny_param_2 = 15
-        min_radius = 5
+        min_radius = 3
         max_radius = 12
-        min_dist = 4
+        min_dist = 2
 
         # Iris position tracker
         iris_min_dist = 4
