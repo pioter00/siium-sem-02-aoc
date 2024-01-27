@@ -6,7 +6,8 @@ import numpy as np
 import math
 from time import sleep
 import os
-from src.consts import *
+from consts import *
+from util import MyQueue
 
 
 class VideoProcessing(QThread):
@@ -166,7 +167,27 @@ class VideoProcessing(QThread):
                             #            (255, 0, 0), thickness=-1)
 
                 # TODO get status from here
-                print(f'Eyes status {eye_status}')
+                # print(f'Eyes status {eye_status}')
+
+                eye_status_queue.push(eye_status)
+                if eye_status_queue.isFull():
+                    left_eye_values = []
+                    right_eye_values = []
+                    for eye_status in eye_status_queue.list:
+                        left_eye_values.append(eye_status['Left'])
+                        right_eye_values.append(eye_status['Right'])
+                    left_eye_L = left_eye_values.count("Left")
+                    left_eye_R = left_eye_values.count("Right")
+                    right_eye_L = right_eye_values.count("Left")
+                    right_eye_R = right_eye_values.count("Right")
+
+                    if left_eye_L >= 3 and right_eye_L >= 3:
+                        print("LEFT")
+                    elif left_eye_R >= 3 and right_eye_R >= 3:
+                        print("RIGHT")
+                    else:
+                        print("MID")
+
 
                 self.change_pixmap_signal.emit(frame)
                 self.data_queue.put(directions)
