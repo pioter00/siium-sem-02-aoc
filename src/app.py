@@ -11,14 +11,14 @@ from PyQt5.QtGui import QImage, QPixmap
 
 from scroll import Scroller
 from video_processing import VideoProcessing
-from src.consts import *
+from consts import *
 
 class WebCamThread(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
 
     def run(self):
         self.lock = False
-        cap = cv2.VideoCapture(camera)
+        cap = cv2.VideoCapture(0)
         while cap.isOpened():
             if self.lock:
                 break
@@ -57,40 +57,48 @@ class MainWidget(QWidget):
         self.dispaly_width = 1280
         self.display_height = 1024
         self.label = QLabel('Status:\n\nUnknown')
+
         self.start_acq_button = QPushButton('Start Eye Tracking')
-        self.start_acq_button.clicked.connect(self.stop_acq)
+        self.start_acq_button.clicked.connect(self.start_eye_tracking)
+
         self.stop_acq_button = QPushButton('Stop Eye Tracking')
-        self.stop_acq_button.clicked.connect(self.start_acq)
+        self.stop_acq_button.clicked.connect(self.stop_eye_tracking)
         self.stop_acq_button.setDisabled(True)
+
         self.calibrate_button = QPushButton('Calibrate')
         self.calibrate_button.clicked.connect(self.calibrate)
         self.calibrate_button.setDisabled(True)
-        self.image_label = QLabel(self)
-        self.image_label.resize(self.dispaly_width, self.display_height)
+
+        self.image_from_camera = QLabel(self)
+        self.image_from_camera.resize(self.dispaly_width, self.display_height)
+
         self.thread = WebCamThread()
         self.thread.change_pixmap_signal.connect(self.update_image)
         self.thread.start()
         self.data_queue = Queue()
+
         self.frames_to_wait = QLabel('Frames to wait: 10')
         self.frames_to_wait.setAlignment(Qt.AlignBottom)
+
         self.frames_slider = QSlider(Qt.Horizontal)
         self.frames_slider.setMinimum(5)
         self.frames_slider.setMaximum(60)
         self.frames_slider.setValue(10)
         self.frames_slider.valueChanged.connect(
             lambda: self.frames_to_wait.setText('Frames to wait: ' + str(self.frames_slider.value())))
+
         self.scroll_ticks = QLabel('Scroll ticks: 20')
         self.scroll_ticks.setAlignment(Qt.AlignBottom)
+
         self.ticks_slider = QSlider(Qt.Horizontal)
         self.ticks_slider.setMinimum(5)
         self.ticks_slider.setMaximum(40)
         self.ticks_slider.setValue(20)
-        self.ticks_slider.valueChanged.connect(
-            lambda: self.scroll_ticks.setText('Scroll ticks: ' + str(self.ticks_slider.value())))
+        self.ticks_slider.valueChanged.connect(lambda: self.scroll_ticks.setText('Scroll ticks: ' + str(self.ticks_slider.value())))
 
-        self.initUI()
+        self.init_ui()
 
-    def stop_acq(self):
+    def start_eye_tracking(self):
         self.thread.lock = True
         del self.thread
         sleep(0.5)
@@ -106,7 +114,7 @@ class MainWidget(QWidget):
         self.eye_tracker.start()
         self.label.setText('Status:\n\nEye tracking is running')
 
-    def start_acq(self):
+    def stop_eye_tracking(self):
         self.eye_tracker.lock = True
         del self.eye_tracker
         del self.scroller
@@ -124,34 +132,45 @@ class MainWidget(QWidget):
     def calibrate(self):
         self.eye_tracker.starting_position.clear()
 
-    def initUI(self):
+    def init_ui(self):
         main_layout = QHBoxLayout()
         self.label.setAlignment(Qt.AlignTop)
-        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_from_camera.setAlignment(Qt.AlignCenter)
 
-        control_panel_layout = QVBoxLayout()
-        control_panel_layout.addWidget(self.label)
-        control_panel_layout.addWidget(self.frames_to_wait)
-        control_panel_layout.addWidget(self.frames_slider)
-        control_panel_layout.addWidget(self.scroll_ticks)
-        control_panel_layout.addWidget(self.ticks_slider)
-        control_panel_layout.addWidget(self.start_acq_button)
-        control_panel_layout.addWidget(self.stop_acq_button)
-        control_panel_layout.addWidget(self.calibrate_button)
+        # Panel znajdujący się pod obrazem z kamery
+        tracking_controls_panel = QHBoxLayout()
 
-        control_panel = QWidget()
-        control_panel.setLayout(control_panel_layout)
-        control_panel.setFixedWidth(200)
+        # Przycisku w panelu pod obrazem z kamery
+        buttons_layout = QVBoxLayout()
+        buttons_layout.addWidget(self.start_acq_button)
+        buttons_layout.addWidget(self.stop_acq_button)
+        buttons_layout.addWidget(self.calibrate_button)
 
-        main_layout.addWidget(control_panel)
-        main_layout.addWidget(self.image_label)
+        tracking_controls_panel.addLayout(buttons_layout)
+        tracking_controls_panel.addWidget(self.label)
+
+        # Historia czatu po lewej stronie od widoku z kamery
+        chat_history_panel = QWidget()
+        chat_history_panel.setMinimumWidth(400)
+        # chat_history_panel.setStyleSheet("background-color:red;")
+
+        # Połączony widok z kamery oraz panelu z kontrolkami
+        canera_with_controls_panel = QVBoxLayout()
+        canera_with_controls_panel.addWidget(self.image_from_camera)
+        canera_with_controls_panel.addStretch()
+        canera_with_controls_panel.addLayout(tracking_controls_panel)
+
+        # Połączenie panelu czatu razem z widokiem z kamery i kontrolkami
+        main_layout.addWidget(chat_history_panel)
+        main_layout.addStretch()
+        main_layout.addLayout(canera_with_controls_panel)
         self.setLayout(main_layout)
         self.show()
 
     @pyqtSlot(np.ndarray)
     def update_image(self, cv_img):
         qt_img = self.convert_cv_qt(cv_img)
-        self.image_label.setPixmap(qt_img)
+        self.image_from_camera.setPixmap(qt_img)
         if self.label.text() == 'Status:\n\nUnknown':
             self.label.setText('Status:\n\nCamera ready')
 
