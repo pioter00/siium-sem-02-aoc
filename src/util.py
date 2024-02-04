@@ -16,6 +16,9 @@ class MyQueue:
         del self.list[0]
         return temp
 
+    def clear(self):
+        self.list.clear()
+
     def isEmpty(self):
         return len(self.list) == 0
 

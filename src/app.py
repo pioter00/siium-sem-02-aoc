@@ -1,4 +1,6 @@
 import sys
+from datetime import datetime
+
 import cv2
 import numpy as np
 
@@ -6,8 +8,8 @@ from queue import Queue
 from time import sleep
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
-from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QApplication, QMainWindow, QWidget, QSlider
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QPushButton, QApplication, QMainWindow, QWidget, QSlider, QLabel
+from PyQt5.QtGui import QImage, QPixmap, QFont
 
 from scroll import Scroller
 from video_processing import VideoProcessing
@@ -62,6 +64,9 @@ class MainWidget(QWidget):
         self.dispaly_width = 1280
         self.display_height = 1024
         self.label = QLabel('Status:\n\nUnknown')
+
+        self.chat_history = []
+        self.chat_label = None
 
         self.start_acq_button = QPushButton('Start Eye Tracking')
         self.start_acq_button.clicked.connect(self.start_eye_tracking)
@@ -142,6 +147,7 @@ class MainWidget(QWidget):
         main_layout = QHBoxLayout()
         self.label.setAlignment(Qt.AlignTop)
         self.image_from_camera.setAlignment(Qt.AlignCenter)
+        self.image_from_camera.setMaximumHeight(600)
 
         # Panel znajdujący się pod obrazem z kamery
         tracking_controls_panel = QHBoxLayout()
@@ -156,8 +162,18 @@ class MainWidget(QWidget):
         tracking_controls_panel.addWidget(self.label)
 
         # Historia czatu po lewej stronie od widoku z kamery
-        chat_history_panel = QWidget()
-        chat_history_panel.setMinimumWidth(400)
+        chat_history_panel = QVBoxLayout()
+        chat_title_label = QLabel()
+        chat_title_label.setFont(QFont('Arial', 20, QFont.Bold))
+        chat_title_label.setText("Messages history:")
+        self.chat_label = QLabel()
+        self.chat_label.setFont(QFont('Arial', 15))
+        self.chat_label.setMinimumWidth(400)
+        self.chat_label.setAlignment(Qt.AlignLeft)
+        self.chat_label.setText("")
+        chat_history_panel.addWidget(chat_title_label)
+        chat_history_panel.addWidget(self.chat_label)
+        chat_history_panel.addStretch()
         # chat_history_panel.setStyleSheet("background-color:red;")
 
         # Połączony widok z kamery oraz panelu z kontrolkami
@@ -167,7 +183,7 @@ class MainWidget(QWidget):
         canera_with_controls_panel.addLayout(tracking_controls_panel)
 
         # Połączenie panelu czatu razem z widokiem z kamery i kontrolkami
-        main_layout.addWidget(chat_history_panel)
+        main_layout.addLayout(chat_history_panel)
         main_layout.addStretch()
         main_layout.addLayout(canera_with_controls_panel)
         self.setLayout(main_layout)
@@ -180,9 +196,15 @@ class MainWidget(QWidget):
         if self.label.text() == 'Status:\n\nUnknown':
             self.label.setText('Status:\n\nCamera ready')
 
-    @pyqtSlot(str)
-    def update_chat(self, value: str):
+    @pyqtSlot(str, str)
+    def update_chat(self, value: str, time: str):
         print(f"CHAT UPDATED!: {value}")
+        self.chat_history.append((value, time))
+        text = ""
+        for i in range(len(self.chat_history)):
+            value, time = self.chat_history[len(self.chat_history) - 1 - i]
+            text += f"{time}:\t" + value + "\n"
+        self.chat_label.setText(text)
 
     def convert_cv_qt(self, cv_img):
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
