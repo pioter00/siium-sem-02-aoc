@@ -1,3 +1,4 @@
+import time
 from queue import Queue
 import cv2
 from eye import Eye
@@ -153,7 +154,7 @@ class VideoProcessing(QThread):
             left_eye_count = left_eye_values.count(left_eye)
             right_eye_count = right_eye_values.count(right_eye)
 
-            minimum_count = int(eye_status_queue.size * 0.7)
+            minimum_count = int(eye_status_queue.size * 0.5)
 
             if left_eye is not None and left_eye == right_eye and left_eye_count >= minimum_count and right_eye_count >= minimum_count:
                 return left_eye
@@ -236,9 +237,9 @@ class VideoProcessing(QThread):
 
     def run(self) -> None:
         self.lock = False
-        cap = cv2.VideoCapture("../resources/video1.mp4")
+        # cap = cv2.VideoCapture("../resources/video1.mp4")
+        cap = cv2.VideoCapture(camera)
         self.FPS = int(cap.get(cv2.CAP_PROP_FPS))
-        # cap = cv2.VideoCapture(camera)
 
         width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -249,10 +250,12 @@ class VideoProcessing(QThread):
         eye_status_queue = MyQueue(self.FPS)
         blink_status_queue = MyQueue(self.FPS)
 
+        start_time = time.perf_counter()
+        fram = 0
         while cap.isOpened():
             if self.lock:
                 break
-
+            fram += 1
             ret, frame = cap.read()
 
             self.FPS = int(cap.get(cv2.CAP_PROP_FPS))
@@ -270,6 +273,11 @@ class VideoProcessing(QThread):
 
                 self.change_pixmap_signal.emit(frame)
                 self.data_queue.put(None)
+            temp = time.perf_counter() - start_time
+            if time.perf_counter() - start_time >=1:
+                print(f"Frames per seconf: {fram}")
+                start_time = time.perf_counter()
+                fram = 0
 
         self.data_queue.put(None)
         cap.release()
