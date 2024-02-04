@@ -1,5 +1,4 @@
-def deelcopy(param):
-    pass
+from copy import deepcopy
 
 
 class MyQueue:
@@ -13,7 +12,7 @@ class MyQueue:
             del self.list[0]
 
     def pop(self):
-        temp = deelcopy(self.list[0])
+        temp = deepcopy(self.list[0])
         del self.list[0]
         return temp
 
@@ -22,6 +21,9 @@ class MyQueue:
 
     def isFull(self):
         return len(self.list) >= self.size
+
+    def size(self):
+        return len(self.list)
 
     def __str__(self):
         return str(self.list)

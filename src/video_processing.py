@@ -5,10 +5,10 @@ from PyQt5.QtCore import pyqtSignal, QThread
 import numpy as np
 import math
 from time import sleep
-import os
-from consts import *
-from util import MyQueue
 
+from src.consts import camera
+from util import MyQueue
+from chat_database import dialogues
 
 class VideoProcessing(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
@@ -30,6 +30,8 @@ class VideoProcessing(QThread):
         self.FACTOR = 0.015
         # Iris position tracker
         self.iris_min_dist = 4
+
+        self.current_chat_dataset = 0
 
         return super().__init__()
 
@@ -175,11 +177,38 @@ class VideoProcessing(QThread):
                     else:
                         return True
 
+    def print_chat_dataset(self, frame, width, height):
+        currrent_dataset = dialogues[self.current_chat_dataset]
+        width = int(width)
+        height = int(height)
+        padding = 70
+        # up
+        cv2.putText(frame, currrent_dataset[0], (int(width/2), padding), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+        # down
+        cv2.putText(frame, currrent_dataset[1], (int(width / 2), height - padding), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+        # left
+        cv2.putText(frame, currrent_dataset[2], (padding, int(height / 2)), cv2.FONT_HERSHEY_TRIPLEX, 1,(255, 255, 255), 2)
+        # right
+        cv2.putText(frame, currrent_dataset[3], (width - padding, int(height / 2)), cv2.FONT_HERSHEY_TRIPLEX, 1,(255, 255, 255), 2)
+
+    def change_chat_dataset(self):
+        datasets_count = len(dialogues)
+        self.current_chat_dataset += 1
+        if self.current_chat_dataset >= datasets_count:
+            self.current_chat_dataset = 0
+
     def run(self) -> None:
-        eye_status_queue = MyQueue(10)
+        eye_status_queue = MyQueue(15)
+        blink_status_queue = MyQueue(15)
+        is_blinking = False
+
         self.lock = False
-        sleep(5)
-        cap = cv2.VideoCapture("../resources/video2.mp4")
+        # sleep(5)
+        # cap = cv2.VideoCapture("../resources/video2.mp4")
+        cap = cv2.VideoCapture(camera)
+
+        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
         if not cap.isOpened():
             print("Error opening video stream or file")
@@ -194,13 +223,22 @@ class VideoProcessing(QThread):
                 blink = self.detect_eye_blink(ret, frame)
                 direction = self.detect_eyes_direction(ret, frame, eye_status_queue)
 
+                true_count = len([i for i in blink_status_queue.list if i == True])
 
                 if not blink:
                     cv2.putText(frame, "Eye's Open", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+                    blink_status_queue.push(False)
+                    if is_blinking:
+                        if (true_count/blink_status_queue.size) < 0.1:
+                            print("Blink Detected.....!!!!")
+                            is_blinking = False
+                            self.change_chat_dataset()
                 else:
-                    cv2.putText(frame, "Blink Detected.....!!!!", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
-                    print("Blink Detected.....!!!!")
-                print(direction)
+                    cv2.putText(frame, "Eye's Close.....!!!!", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
+                    blink_status_queue.push(True)
+                    is_blinking = True
+                # print(direction)
+                self.print_chat_dataset(frame, width, height)
 
                 self.change_pixmap_signal.emit(frame)
                 self.data_queue.put(None)
