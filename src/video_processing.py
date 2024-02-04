@@ -12,6 +12,7 @@ from chat_database import dialogues
 
 class VideoProcessing(QThread):
     change_pixmap_signal = pyqtSignal(np.ndarray)
+    update_chat_signal = pyqtSignal(str)
 
     def __init__(self, data_queue: Queue) -> None:
         self.data_queue = data_queue
@@ -19,6 +20,8 @@ class VideoProcessing(QThread):
         self.eye_cascade = cv2.CascadeClassifier('../resources/haarcascade_eye.xml')
         # self.eye_status = {'Left': None,
         #                    'Right': None}  # Tracker for eye status
+
+        self.signal: pyqtSignal = pyqtSignal(str)
 
         self.blur_mask_size = 3
         self.canny_param_1 = 30
@@ -32,6 +35,8 @@ class VideoProcessing(QThread):
         self.iris_min_dist = 4
 
         self.current_chat_dataset = 0
+        self.FPS = -1
+        self.is_blinking = False
 
         return super().__init__()
 
@@ -128,6 +133,8 @@ class VideoProcessing(QThread):
                             eye_status[eye_] = 'Right'
                         elif angle > -135 and angle < -45:
                             eye_status[eye_] = 'Down'
+                        else:
+                            eye_status[eye_] = 'Mid'
 
                     else:
                         eye_status[eye_] = 'Mid'
@@ -141,15 +148,15 @@ class VideoProcessing(QThread):
                 left_eye_values.append(eye_status['Left'])
                 right_eye_values.append(eye_status['Right'])
 
-            left_eye_L = left_eye_values.count("Left")
-            left_eye_R = left_eye_values.count("Right")
-            right_eye_L = right_eye_values.count("Left")
-            right_eye_R = right_eye_values.count("Right")
+            left_eye = max(set(left_eye_values), key = left_eye_values.count)
+            right_eye = max(set(right_eye_values), key = right_eye_values.count)
+            left_eye_count = left_eye_values.count(left_eye)
+            right_eye_count = right_eye_values.count(right_eye)
 
-            if left_eye_L >= 6 and right_eye_L >= 6:
-                return "LEFT"
-            elif left_eye_R >= 6 and right_eye_R >= 6:
-                return "RIGHT"
+            minimum_count = int(eye_status_queue.size * 0.7)
+
+            if left_eye is not None and left_eye == right_eye and left_eye_count >= minimum_count and right_eye_count >= minimum_count:
+                return left_eye
             else:
                 return "MID"
         return "MID"
@@ -197,15 +204,41 @@ class VideoProcessing(QThread):
         if self.current_chat_dataset >= datasets_count:
             self.current_chat_dataset = 0
 
-    def run(self) -> None:
-        eye_status_queue = MyQueue(15)
-        blink_status_queue = MyQueue(15)
-        is_blinking = False
+    def handle_blink(self,frame, blink: bool, blink_status_queue: MyQueue):
+        true_count = len([i for i in blink_status_queue.list if i == True])
 
+        if not blink:
+            cv2.putText(frame, "Eye's Open", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+            blink_status_queue.push(False)
+            if self.is_blinking:
+                if (true_count / blink_status_queue.size) > 0.05:
+                    print("Blink Detected.....!!!!")
+                    self.is_blinking = False
+                    self.change_chat_dataset()
+        else:
+            cv2.putText(frame, "Eye's Close.....!!!!", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
+            blink_status_queue.push(True)
+            self.is_blinking = True
+        cv2.putText(frame, f"{self.FPS}FPS", (0, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
+
+    def handle_chat_select(self, direction):
+        currrent_dataset = dialogues[self.current_chat_dataset]
+
+        if direction == 'Up':
+            self.update_chat_signal.emit(currrent_dataset[0])
+        elif direction == 'Down':
+            self.update_chat_signal.emit(currrent_dataset[1])
+        elif direction == 'Left':
+            self.update_chat_signal.emit(currrent_dataset[2])
+        elif direction == 'Right':
+            self.update_chat_signal.emit(currrent_dataset[3])
+
+
+    def run(self) -> None:
         self.lock = False
-        # sleep(5)
-        # cap = cv2.VideoCapture("../resources/video2.mp4")
-        cap = cv2.VideoCapture(camera)
+        cap = cv2.VideoCapture("../resources/video1.mp4")
+        self.FPS = int(cap.get(cv2.CAP_PROP_FPS))
+        # cap = cv2.VideoCapture(camera)
 
         width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -213,31 +246,26 @@ class VideoProcessing(QThread):
         if not cap.isOpened():
             print("Error opening video stream or file")
 
+        eye_status_queue = MyQueue(self.FPS)
+        blink_status_queue = MyQueue(self.FPS)
+
         while cap.isOpened():
             if self.lock:
                 break
 
             ret, frame = cap.read()
 
+            self.FPS = int(cap.get(cv2.CAP_PROP_FPS))
+
             if ret:
                 blink = self.detect_eye_blink(ret, frame)
                 direction = self.detect_eyes_direction(ret, frame, eye_status_queue)
 
-                true_count = len([i for i in blink_status_queue.list if i == True])
+                print(direction)
 
-                if not blink:
-                    cv2.putText(frame, "Eye's Open", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
-                    blink_status_queue.push(False)
-                    if is_blinking:
-                        if (true_count/blink_status_queue.size) < 0.1:
-                            print("Blink Detected.....!!!!")
-                            is_blinking = False
-                            self.change_chat_dataset()
-                else:
-                    cv2.putText(frame, "Eye's Close.....!!!!", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
-                    blink_status_queue.push(True)
-                    is_blinking = True
-                # print(direction)
+                self.handle_blink(frame, blink, blink_status_queue)
+                self.handle_chat_select(direction)
+
                 self.print_chat_dataset(frame, width, height)
 
                 self.change_pixmap_signal.emit(frame)

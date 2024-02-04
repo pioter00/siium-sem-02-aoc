@@ -28,6 +28,11 @@ class WebCamThread(QThread):
         cap.release()
         cv2.destroyAllWindows()
 
+# class ChatThread(QThread):
+#     update_chat_signal = pyqtSignal(str)
+#
+#     def update_chat(self, string: str):
+#         self.update_chat_signal.emit(string)
 
 class Main(QMainWindow):
     def __init__(self):
@@ -109,6 +114,7 @@ class MainWidget(QWidget):
         self.ticks_slider.setDisabled(True)
         self.eye_tracker = VideoProcessing(self.data_queue)
         self.eye_tracker.change_pixmap_signal.connect(self.update_image)
+        self.eye_tracker.update_chat_signal.connect(self.update_chat)
         self.scroller = Scroller(self.data_queue, self.frames_slider.value(), self.ticks_slider.value())
         self.scroller.start()
         self.eye_tracker.start()
@@ -173,6 +179,10 @@ class MainWidget(QWidget):
         self.image_from_camera.setPixmap(qt_img)
         if self.label.text() == 'Status:\n\nUnknown':
             self.label.setText('Status:\n\nCamera ready')
+
+    @pyqtSlot(str)
+    def update_chat(self, value: str):
+        print(f"CHAT UPDATED!: {value}")
 
     def convert_cv_qt(self, cv_img):
         rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
