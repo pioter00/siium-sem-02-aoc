@@ -1,13 +1,14 @@
 import time
+import math
+import numpy as np
 from datetime import datetime
-from queue import Queue
+
 import cv2
 from eye import Eye
-from PyQt5.QtCore import pyqtSignal, QThread
-import numpy as np
-import math
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt, QThread
 from time import sleep
 
+from queue import Queue
 from src.consts import camera
 from util import MyQueue
 from chat_database import dialogues
@@ -23,8 +24,9 @@ class VideoProcessing(QThread):
         # self.eye_status = {'Left': None,
         #                    'Right': None}  # Tracker for eye status
 
-        self.signal: pyqtSignal = pyqtSignal(str)
         self.last_time_chat_select = -1
+        self.eye_direction_sensitivity = 0.7
+        self.blink_sensitivity = 0.5
 
         self.blur_mask_size = 3
         self.canny_param_1 = 30
@@ -42,6 +44,16 @@ class VideoProcessing(QThread):
         self.is_blinking = False
 
         return super().__init__()
+
+    @pyqtSlot(float)
+    def change_blink_sensitivity(self, value: float):
+        self.blink_sensitivity=1-value
+        print(f"new eye_direction valuse: {self.blink_sensitivity}")
+
+    @pyqtSlot(float)
+    def change_eye_direction_sensitivity(self, value: float):
+        self.eye_direction_sensitivity = 1 - value
+        print(f"new eye_direction valuse: {self.eye_direction_sensitivity}")
 
     def detect_eyes_direction(self, ret, frame, eye_status_queue):
 
@@ -122,18 +134,18 @@ class VideoProcessing(QThread):
                     # print(f'Position eye {i} : dist {dist}, angle {angle}')
 
                     if i == 0:
-                        eye_ = 'Right'
+                        eye_ = 'Left'
                     else:
-                        eye_ = "Left"
+                        eye_ = "Right"
 
                     if dist > self.iris_min_dist:
                         if angle > -45 and angle < 45:
                             # this is mirror image, that's why left and right are switched
-                            eye_status[eye_] = 'Right'
+                            eye_status[eye_] = 'Left'
                         elif angle > 45 and angle < 135:
                             eye_status[eye_] = 'Up'
                         elif angle > 135 or angle < -135:
-                            eye_status[eye_] = 'Left'
+                            eye_status[eye_] = 'Right'
                         elif angle > -135 and angle < -45:
                             eye_status[eye_] = 'Down'
                         else:
@@ -174,13 +186,13 @@ class VideoProcessing(QThread):
         height = int(height)
         padding = 70
         # up
-        cv2.putText(frame, currrent_dataset[0], (int(width/2), padding), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(frame, currrent_dataset[0], (int(width/2), padding), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (255, 255, 255), 1)
         # down
-        cv2.putText(frame, currrent_dataset[1], (int(width / 2), height - padding), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(frame, currrent_dataset[1], (int(width / 2), height - padding), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (255, 255, 255), 1)
         # left
-        cv2.putText(frame, currrent_dataset[2], (padding, int(height / 2)), cv2.FONT_HERSHEY_TRIPLEX, 1,(255, 255, 255), 2)
+        cv2.putText(frame, currrent_dataset[2], (padding, int(height / 2)), cv2.FONT_HERSHEY_TRIPLEX, 0.5,(255, 255, 255), 1)
         # right
-        cv2.putText(frame, currrent_dataset[3], (width - padding, int(height / 2)), cv2.FONT_HERSHEY_TRIPLEX, 1,(255, 255, 255), 2)
+        cv2.putText(frame, currrent_dataset[3], (width - padding, int(height / 2)), cv2.FONT_HERSHEY_TRIPLEX, 0.5,(255, 255, 255), 1)
 
     def change_chat_dataset(self):
         datasets_count = len(dialogues)
@@ -192,15 +204,15 @@ class VideoProcessing(QThread):
         true_count = len([i for i in blink_status_queue.list if i == True])
 
         if not blink:
-            cv2.putText(frame, "Eye's Open", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
+            # cv2.putText(frame, "Eye's Open", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
             blink_status_queue.push(False)
             if self.is_blinking:
-                if (true_count / blink_status_queue.size) > 0.05:
+                if (true_count / blink_status_queue.size) >= self.blink_sensitivity:
                     print("Blink Detected.....!!!!")
                     self.is_blinking = False
                     self.change_chat_dataset()
         else:
-            cv2.putText(frame, "Eye's Close.....!!!!", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
+            # cv2.putText(frame, "Eye's Close.....!!!!", (70, 70), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 2)
             blink_status_queue.push(True)
             self.is_blinking = True
 
@@ -232,7 +244,7 @@ class VideoProcessing(QThread):
             left_eye_count = left_eye_values.count(left_eye)
             right_eye_count = right_eye_values.count(right_eye)
 
-            minimum_count = int(eye_status_queue.size * 0.7)
+            minimum_count = int(eye_status_queue.size * self.eye_direction_sensitivity)
 
             if time.time() - self.last_time_chat_select >= time_between_chat_select:
                 if left_eye != 'None' and left_eye != 'Mid' and left_eye == right_eye:
@@ -241,11 +253,10 @@ class VideoProcessing(QThread):
                         self.last_time_chat_select = time.time()
                         eye_status_queue.clear()
 
-
     def run(self) -> None:
         self.lock = False
-        cap = cv2.VideoCapture("../resources/video1.mp4")
-        # cap = cv2.VideoCapture(camera)
+        # cap = cv2.VideoCapture("../resources/video3.mp4")
+        cap = cv2.VideoCapture(camera)
 
         width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)

@@ -58,6 +58,8 @@ class Main(QMainWindow):
 
 
 class MainWidget(QWidget):
+    update_blink_signal = pyqtSignal(float)
+    update_eye_direction_signal = pyqtSignal(float)
 
     def __init__(self):
         super().__init__()
@@ -67,6 +69,7 @@ class MainWidget(QWidget):
 
         self.chat_history = []
         self.chat_label = None
+        self.eye_direction_slider = None
 
         self.start_acq_button = QPushButton('Start Eye Tracking')
         self.start_acq_button.clicked.connect(self.start_eye_tracking)
@@ -75,9 +78,9 @@ class MainWidget(QWidget):
         self.stop_acq_button.clicked.connect(self.stop_eye_tracking)
         self.stop_acq_button.setDisabled(True)
 
-        self.calibrate_button = QPushButton('Calibrate')
-        self.calibrate_button.clicked.connect(self.calibrate)
-        self.calibrate_button.setDisabled(True)
+        # self.calibrate_button = QPushButton('Calibrate')
+        # self.calibrate_button.clicked.connect(self.calibrate)
+        # self.calibrate_button.setDisabled(True)
 
         self.image_from_camera = QLabel(self)
         self.image_from_camera.resize(self.dispaly_width, self.display_height)
@@ -113,13 +116,15 @@ class MainWidget(QWidget):
         del self.thread
         sleep(0.5)
         self.start_acq_button.setDisabled(True)
-        self.calibrate_button.setDisabled(False)
+        # self.calibrate_button.setDisabled(False)
         self.stop_acq_button.setDisabled(False)
         self.frames_slider.setDisabled(True)
         self.ticks_slider.setDisabled(True)
         self.eye_tracker = VideoProcessing(self.data_queue)
         self.eye_tracker.change_pixmap_signal.connect(self.update_image)
         self.eye_tracker.update_chat_signal.connect(self.update_chat)
+        self.update_blink_signal.connect(self.eye_tracker.change_blink_sensitivity)
+        self.update_eye_direction_signal.connect(self.eye_tracker.change_eye_direction_sensitivity)
         self.scroller = Scroller(self.data_queue, self.frames_slider.value(), self.ticks_slider.value())
         self.scroller.start()
         self.eye_tracker.start()
@@ -134,20 +139,20 @@ class MainWidget(QWidget):
         self.thread.change_pixmap_signal.connect(self.update_image)
         self.thread.start()
         self.stop_acq_button.setDisabled(True)
-        self.calibrate_button.setDisabled(True)
+        # self.calibrate_button.setDisabled(True)
         self.start_acq_button.setDisabled(False)
         self.frames_slider.setDisabled(False)
         self.ticks_slider.setDisabled(False)
-        self.label.setText('Status:\n\nEye tracking is stopped\nCamera ready')
+        self.label.setText('Status: Eye tracking is stopped. Camera ready')
 
-    def calibrate(self):
-        self.eye_tracker.starting_position.clear()
+    # def calibrate(self):
+    #     self.eye_tracker.starting_position.clear()
 
     def init_ui(self):
         main_layout = QHBoxLayout()
         self.label.setAlignment(Qt.AlignTop)
         self.image_from_camera.setAlignment(Qt.AlignCenter)
-        self.image_from_camera.setMaximumHeight(600)
+        self.image_from_camera.setMaximumHeight(800)
 
         # Panel znajdujący się pod obrazem z kamery
         tracking_controls_panel = QHBoxLayout()
@@ -156,10 +161,35 @@ class MainWidget(QWidget):
         buttons_layout = QVBoxLayout()
         buttons_layout.addWidget(self.start_acq_button)
         buttons_layout.addWidget(self.stop_acq_button)
-        buttons_layout.addWidget(self.calibrate_button)
+        # buttons_layout.addWidget(self.calibrate_button)
+
+        sliders_layout = QVBoxLayout()
+        self.eye_direction_slider = QSlider(Qt.Horizontal)
+        self.eye_direction_slider.setMinimum(0)
+        self.eye_direction_slider.setMaximum(100)
+        self.eye_direction_slider.setValue(70)
+        self.eye_direction_slider.setTickPosition(QSlider.TicksBelow)
+        self.eye_direction_slider.setTickInterval(5)
+        self.eye_direction_slider.valueChanged.connect(self.change_eye_direction_sensitivity)
+        self.eye_direction_slider.setMaximumWidth(500)
+
+        self.eye_blink = QSlider(Qt.Horizontal)
+        self.eye_blink.setMinimum(0)
+        self.eye_blink.setMaximum(100)
+        self.eye_blink.setValue(50)
+        self.eye_blink.setTickPosition(QSlider.TicksBelow)
+        self.eye_blink.setTickInterval(5)
+        self.eye_blink.valueChanged.connect(self.change_blink_sensitivity)
+        self.eye_blink.setMaximumWidth(500)
+
+        sliders_layout.addWidget(self.label)
+        sliders_layout.addWidget(QLabel("Eye direction sensitivity"))
+        sliders_layout.addWidget(self.eye_direction_slider)
+        sliders_layout.addWidget(QLabel("Eye blink sensitivity"))
+        sliders_layout.addWidget(self.eye_blink)
 
         tracking_controls_panel.addLayout(buttons_layout)
-        tracking_controls_panel.addWidget(self.label)
+        tracking_controls_panel.addLayout(sliders_layout)
 
         # Historia czatu po lewej stronie od widoku z kamery
         chat_history_panel = QVBoxLayout()
@@ -188,6 +218,14 @@ class MainWidget(QWidget):
         main_layout.addLayout(canera_with_controls_panel)
         self.setLayout(main_layout)
         self.show()
+
+    def change_eye_direction_sensitivity(self):
+        value = self.eye_direction_slider.value()
+        self.update_eye_direction_signal.emit(value/100)
+
+    def change_blink_sensitivity(self):
+        value = self.eye_blink.value()
+        self.update_blink_signal.emit(value/100)
 
     @pyqtSlot(np.ndarray)
     def update_image(self, cv_img):
