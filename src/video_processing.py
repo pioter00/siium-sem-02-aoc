@@ -61,11 +61,8 @@ class VideoProcessing(QThread):
                       'Right': None}  # Tracker for eye status
 
         frame_height, frame_width = len(frame), len(frame[0])
-
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         faces = self.face_cascade.detectMultiScale(gray, 1.1, 4)
-        directions = []
 
         for (x_face, y_face, width_face, height_face) in faces:
             face_gray = gray[y_face: y_face + height_face, x_face: x_face + width_face]
@@ -74,7 +71,7 @@ class VideoProcessing(QThread):
             detected_eyes = self.eye_cascade.detectMultiScale(face_gray)
             detected_eyes = sorted(detected_eyes, key=lambda el: el[1])
             if len(detected_eyes) < 2:
-                print("none")
+                print("Less than 2 eyes detected")
 
             # TODO consider breaking if i >= 2 (more than 2 eye detected)
             for i, (eye_x, eye_y, eye_width, eye_height) in enumerate(
@@ -164,9 +161,10 @@ class VideoProcessing(QThread):
         gray = cv2.bilateralFilter(gray, 5, 1, 1)
         # to detect face
         faces = self.face_cascade.detectMultiScale(gray, 1.3, 5, minSize=(200, 200))
+        result = False
         if len(faces) > 0:
             for (x, y, w, h) in faces:
-                # image = cv2.rectangle(image, (x, y), (x + w, y + h), (1, 190, 200), 2)
+                image = cv2.rectangle(image, (x, y), (x + w, y + h), (1, 190, 200), 2)
                 # face detector
                 roi_face = gray[y:y + h, x:x + w]
                 # image
@@ -176,9 +174,10 @@ class VideoProcessing(QThread):
                 for (ex, ey, ew, eh) in eyes:
                     cv2.rectangle(roi_face_clr, (ex, ey), (ex + ew, ey + eh), (255, 153, 255), 2)
                     if len(eyes) >= 2:
-                        return False
+                        result = False
                     else:
-                        return True
+                        result = True
+        return result
 
     def print_chat_dataset(self, frame, width: int, height: int):
         currrent_dataset = dialogues[self.current_chat_dataset]
