@@ -18,14 +18,13 @@ class VideoProcessing(QThread):
     update_chat_signal = pyqtSignal(str, str)
 
     def __init__(self, data_queue: Queue) -> None:
-        self.data_queue = data_queue
         self.face_cascade = cv2.CascadeClassifier('../resources/haarcascade_frontalface_default.xml')
         self.eye_cascade = cv2.CascadeClassifier('../resources/haarcascade_eye.xml')
         # self.eye_status = {'Left': None,
         #                    'Right': None}  # Tracker for eye status
 
         self.last_time_chat_select = -1
-        self.eye_direction_sensitivity = 0.7
+        self.eye_direction_sensitivity = 0.6
         self.blink_sensitivity = 0.5
 
         self.blur_mask_size = 3
@@ -37,7 +36,7 @@ class VideoProcessing(QThread):
 
         self.FACTOR = 0.015
         # Iris position tracker
-        self.iris_min_dist = 4
+        self.iris_min_dist = 2
 
         self.current_chat_dataset = 0
         self.FPS = -1
@@ -275,11 +274,10 @@ class VideoProcessing(QThread):
                 self.handle_blink(frame, blink, blink_status_queue)
                 self.handle_direction(eye_status, eye_status_queue)
 
+                frame = cv2.flip(frame, 1)
                 self.print_chat_dataset(frame, width, height)
 
                 self.change_pixmap_signal.emit(frame)
-                self.data_queue.put(None)
 
-        self.data_queue.put(None)
         cap.release()
         cv2.destroyAllWindows()

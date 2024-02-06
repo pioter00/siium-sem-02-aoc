@@ -167,7 +167,7 @@ class MainWidget(QWidget):
         self.eye_direction_slider = QSlider(Qt.Horizontal)
         self.eye_direction_slider.setMinimum(0)
         self.eye_direction_slider.setMaximum(100)
-        self.eye_direction_slider.setValue(70)
+        self.eye_direction_slider.setValue(40)
         self.eye_direction_slider.setTickPosition(QSlider.TicksBelow)
         self.eye_direction_slider.setTickInterval(5)
         self.eye_direction_slider.valueChanged.connect(self.change_eye_direction_sensitivity)
