@@ -155,28 +155,24 @@ class VideoProcessing(QThread):
         return eye_status
 
     def detect_eye_blink(self, ret, image) -> bool:
-        # Convert the rgb image to gray
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # Applying bilateral filters to remove impurities
-        gray = cv2.bilateralFilter(gray, 5, 1, 1)
-        # to detect face
-        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5, minSize=(200, 200))
         result = False
-        if len(faces) > 0:
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.bilateralFilter(gray, 5, 1, 1)
+
+        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5, minSize=(200, 200))
+        if (len(faces) > 0):
             for (x, y, w, h) in faces:
-                image = cv2.rectangle(image, (x, y), (x + w, y + h), (1, 190, 200), 2)
-                # face detector
+                img = cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
                 roi_face = gray[y:y + h, x:x + w]
-                # image
                 roi_face_clr = image[y:y + h, x:x + w]
-                # to detect eyes
                 eyes = self.eye_cascade.detectMultiScale(roi_face, 1.3, 5, minSize=(50, 50))
-                for (ex, ey, ew, eh) in eyes:
-                    cv2.rectangle(roi_face_clr, (ex, ey), (ex + ew, ey + eh), (255, 153, 255), 2)
-                    if len(eyes) >= 2:
-                        result = False
-                    else:
-                        result = True
+
+                if (len(eyes) >= 2):
+                    result = False
+                else:
+                    result = True
         return result
 
     def print_chat_dataset(self, frame, width: int, height: int):
